@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Asta Fantacalcio Live</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+
+<div class="w-full max-w-md">
+  <div class="text-center mb-8">
+    <div class="text-5xl mb-2">⚽</div>
+    <h1 class="text-3xl font-extrabold tracking-tight">Asta Fantacalcio <span class="text-emerald-400">Live</span></h1>
+    <p class="text-slate-400 mt-1 text-sm">Asta in tempo reale, da qualsiasi rete e dispositivo</p>
+  </div>
+
+  <div class="bg-slate-900 rounded-2xl shadow-xl border border-slate-800 overflow-hidden">
+    <div class="grid grid-cols-2">
+      <button id="tabJoin" class="py-3 font-semibold bg-slate-800 text-white transition">Entra</button>
+      <button id="tabCreate" class="py-3 font-semibold text-slate-400 hover:text-white transition">Crea Stanza</button>
+    </div>
+
+    <!-- ENTRA -->
+    <form id="formJoin" class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm text-slate-400 mb-1">Nome Fantasquadra</label>
+        <input required id="joinNome" maxlength="24" placeholder="Es. Real Divano Club"
+               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      </div>
+      <div>
+        <label class="block text-sm text-slate-400 mb-1">Codice Stanza</label>
+        <input required id="joinCodice" maxlength="6" placeholder="ASTA26"
+               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 uppercase tracking-widest text-center font-mono text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      </div>
+      <p id="joinErrore" class="text-rose-400 text-sm hidden"></p>
+      <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-lg transition">
+        Entra nella Stanza →
+      </button>
+    </form>
+
+    <!-- CREA -->
+    <form id="formCreate" class="p-6 space-y-4 hidden">
+      <div>
+        <label class="block text-sm text-slate-400 mb-1">Il tuo Nome Fantasquadra (Admin)</label>
+        <input required id="createNomeAdmin" maxlength="24" placeholder="Es. Mister X"
+               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-slate-400 mb-1">N. Partecipanti</label>
+          <input type="number" id="createNumPartecipanti" value="10" min="2" max="30"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-sm text-slate-400 mb-1">Budget iniziale</label>
+          <input type="number" id="createBudget" value="500" min="1"
+                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm text-slate-400 mb-2">Slot per ruolo</label>
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1 text-center">P</label>
+            <input type="number" id="slotP" value="3" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1 text-center">D</label>
+            <input type="number" id="slotD" value="8" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1 text-center">C</label>
+            <input type="number" id="slotC" value="8" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1 text-center">A</label>
+            <input type="number" id="slotA" value="6" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm text-slate-400 mb-1">Durata timer rilancio (secondi)</label>
+        <input type="number" id="createTimer" value="10" min="2" max="60"
+               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      </div>
+
+      <p id="createErrore" class="text-rose-400 text-sm hidden"></p>
+      <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-lg transition">
+        Crea Stanza 🚀
+      </button>
+
+      <div class="pt-3 border-t border-slate-800 text-center">
+        <button type="button" id="btnMostraRipristino" class="text-xs text-slate-500 hover:text-slate-300 underline">
+          Hai un backup di una stanza precedente? Ripristinalo
+        </button>
+      </div>
+
+      <div id="blocRipristino" class="hidden pt-2 space-y-2">
+        <label class="block text-sm text-slate-400 mb-1">File di backup (.json)</label>
+        <input type="file" id="inputBackupFile" accept="application/json"
+               class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-white file:text-xs">
+        <p id="ripristinoErrore" class="text-rose-400 text-sm hidden"></p>
+        <p id="ripristinoInfo" class="text-emerald-400 text-sm hidden"></p>
+      </div>
+    </form>
+  </div>
+
+  <div class="mt-6 text-center">
+    <span class="inline-block bg-emerald-500/15 text-emerald-400 font-mono font-bold text-xs px-3 py-1 rounded-full border border-emerald-500/30 tracking-wider">v2.1.3</span>
+  </div>
+  <p class="text-center text-xs text-slate-600 mt-3">Funziona su Wi-Fi e rete mobile · nessuna app da installare</p>
+</div>
+
+<script src="js/home.js"></script>
+</body>
+</html>
