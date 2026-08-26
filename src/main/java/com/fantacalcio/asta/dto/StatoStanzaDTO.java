@@ -16,6 +16,7 @@ public class StatoStanzaDTO {
     private List<String> log;
     private EventoDTO evento; // nullable, one-shot
     private boolean inPausa;
+    private List<RichiestaAttesaDTO> richiestePendenti; // visibile solo all'admin
 
     public String getCodiceStanza() {
         return codiceStanza;
@@ -79,5 +80,13 @@ public class StatoStanzaDTO {
 
     public void setInPausa(boolean inPausa) {
         this.inPausa = inPausa;
+    }
+
+    public List<RichiestaAttesaDTO> getRichiestePendenti() {
+        return richiestePendenti;
+    }
+
+    public void setRichiestePendenti(List<RichiestaAttesaDTO> richiestePendenti) {
+        this.richiestePendenti = richiestePendenti;
     }
 }

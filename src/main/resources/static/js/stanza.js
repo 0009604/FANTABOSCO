@@ -4,8 +4,10 @@ const params = new URLSearchParams(window.location.search);
 var savedCodice = ''; try { savedCodice = localStorage.getItem('fanta_codice') || ''; } catch (e) {}
 var savedNome = ''; try { savedNome = localStorage.getItem('fanta_nome') || ''; } catch (e) {}
 const codiceStanza = (params.get('codice') || savedCodice || '').toUpperCase();
-const mioNome = params.get('nome') || savedNome || '';
-const isSpettatore = mioNome.trim().toLowerCase().includes('ospite');
+let mioNome = params.get('nome') || savedNome || '';
+let isSpettatore = mioNome.trim().toLowerCase().includes('ospite');
+
+let approvato = false; // false finché l'utente è ancora in attesa di approvazione
 
 if (!codiceStanza || !mioNome) {
   window.location.href = 'index.html';
@@ -33,12 +35,17 @@ if (isSpettatore) {
     const overlay = document.getElementById('splashIntro');
     if (!overlay || overlay.style.display === 'none') return;
     overlay.classList.add('fade-out');
-    setTimeout(() => { overlay.style.display = 'none'; }, 400);
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      // Subito dopo il video, se l'utente non è ancora approvato, mostra l'overlay di attesa.
+      if (!approvato) mostraOverlayAttesa('⏳', 'In attesa di approvazione da parte dell\'Admin...', true);
+    }, 400);
   };
 
   if (sessionStorage.getItem('introGiocata_' + codiceStanza) === 'true') {
     const overlay = document.getElementById('splashIntro');
     if (overlay) overlay.style.display = 'none';
+    if (!approvato) mostraOverlayAttesa('⏳', 'In attesa di approvazione da parte dell\'Admin...', true);
   } else {
     const video = document.getElementById('introVideo');
     const skipBtn = document.getElementById('skipIntroBtn');
@@ -51,6 +58,30 @@ if (isSpettatore) {
     skipBtn.addEventListener('click', () => sessionStorage.setItem('introGiocata_' + codiceStanza, 'true'));
   }
 })();
+
+function mostraOverlayAttesa(icona, testo, mostraSpinner) {
+  const overlay = document.getElementById('overlayAttesa');
+  document.getElementById('overlayAttesaIcon').textContent = icona;
+  document.getElementById('overlayAttesaTesto').textContent = testo;
+  document.getElementById('overlayAttesaSpinner').style.display = mostraSpinner ? '' : 'none';
+  document.getElementById('btnRifiutatoEsci').classList.add('hidden');
+  overlay.classList.remove('hidden');
+}
+
+function nascondiOverlayAttesa() {
+  const overlay = document.getElementById('overlayAttesa');
+  overlay.classList.add('hidden');
+  approvato = true;
+}
+
+function mostraRifiutato() {
+  const overlay = document.getElementById('overlayAttesa');
+  document.getElementById('overlayAttesaIcon').textContent = '🚫';
+  document.getElementById('overlayAttesaTesto').textContent = 'La tua richiesta di accesso è stata rifiutata dall\'Admin.';
+  document.getElementById('overlayAttesaSpinner').style.display = 'none';
+  document.getElementById('btnRifiutatoEsci').classList.remove('hidden');
+  overlay.classList.remove('hidden');
+}
 
 const RUOLI = [
   { key: 'PORTIERE', label: 'Portieri', short: 'P', color: 'bg-amber-500/20 text-amber-300' },
@@ -502,6 +533,10 @@ document.getElementById('btnRipristinaBackup').addEventListener('click', async (
   }
 });
 
+document.getElementById('btnRifiutatoEsci').addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
+
 // ---------------------------------------------------------------- QR CODE
 
 document.getElementById('btnMostraQr').addEventListener('click', () => {
@@ -573,7 +608,19 @@ function renderStato(dto) {
   ultimoStato = dto;
 
   const me = dto.partecipanti.find(u => u.nome.toLowerCase() === mioNome.toLowerCase());
-  const sonoAdmin = !!(me && me.admin);
+  const sonoAdmin = !!(me && me.admin) || (dto.adminNome && dto.adminNome.toLowerCase() === mioNome.toLowerCase());
+
+  // Approvazione: se ricevo uno stato senza IN_ATTESA/RIFIUTATO, sono dentro
+  const evt = dto.evento;
+  if (!approvato && evt && evt.tipo === 'IN_ATTESA') {
+    mostraOverlayAttesa('⏳', evt.messaggio || 'In attesa di approvazione da parte dell\'Admin...', true);
+  } else if (!approvato && evt && evt.tipo === 'RIFIUTATO') {
+    mostraRifiutato();
+  } else if (!approvato && evt && evt.tipo === 'SUBENTRATO') {
+    nascondiOverlayAttesa();
+  } else if (me) {
+    nascondiOverlayAttesa();
+  }
 
   if (me) {
     document.getElementById('budgetLabel').textContent = me.budgetResiduo;
@@ -590,6 +637,11 @@ function renderStato(dto) {
   renderPiatto(dto.astaCorrente, dto.configurazione, me);
   renderPausa(dto.inPausa, sonoAdmin);
 
+  // Sala d'Attesa: visibile solo all'admin, aggiornata a ogni broadcast
+  if (sonoAdmin) {
+    renderSalaAttesa(dto.richiestePendenti || [], dto.partecipanti);
+  }
+
   if (isSpettatore) {
     renderDashboardSpettatore(dto);
   }
@@ -604,6 +656,27 @@ function renderStato(dto) {
   if (dto.evento && (dto.evento.targetNome == null || dto.evento.targetNome.toLowerCase() === mioNome.toLowerCase())) {
     if (dto.evento.tipo === 'AUDIO_CASH') {
       playCash();
+    } else if (dto.evento.tipo === 'SUBENTRATO' && dto.evento.messaggio) {
+      var subMatch = dto.evento.messaggio.match(/^SUBENTRATO:(.+?):(-?\d+)$/);
+      if (subMatch) {
+        var nuovoMioNome = subMatch[1];
+        var nuovoBudget = subMatch[2];
+        mioNome = nuovoMioNome;
+        isSpettatore = nuovoMioNome.trim().toLowerCase().includes('ospite');
+        try { localStorage.setItem('fanta_nome', nuovoMioNome); } catch (e) {}
+        document.getElementById('nomeLabel').textContent = nuovoMioNome;
+        document.getElementById('budgetLabel').textContent = nuovoBudget;
+        if (isSpettatore) {
+          document.getElementById('badgeSpettatore').classList.remove('hidden');
+          document.getElementById('pannelloRosa').classList.add('hidden');
+          document.getElementById('pannelloSpettatore').classList.remove('hidden');
+        } else {
+          document.getElementById('badgeSpettatore').classList.add('hidden');
+          document.getElementById('pannelloRosa').classList.remove('hidden');
+          document.getElementById('pannelloSpettatore').classList.add('hidden');
+        }
+        mostraToast({ tipo: 'AGGIUDICAZIONE', messaggio: 'Sei subentrato alla squadra ' + nuovoMioNome + '!' });
+      }
     } else {
       mostraToast(dto.evento);
     }
@@ -662,10 +735,11 @@ function renderPartecipanti(partecipanti, adminNome, astaCorrente) {
         <span class="w-1.5 h-1.5 rounded-full ${u.connesso ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
         <span class="truncate ${isMe ? 'font-bold text-emerald-400' : ''}">${escapeHtml(u.nome)}</span>
         ${u.admin ? '<span class="text-[10px] text-amber-400">★</span>' : ''}
+        ${u.spettatore ? '<span class="text-[10px] text-sky-400 ml-0.5">👁️</span>' : ''}
       </span>
       <span class="flex items-center gap-2">
-        <span class="text-slate-400 font-mono text-xs">${u.budgetResiduo === null || u.budgetResiduo === undefined ? '🔒' : u.budgetResiduo}</span>
-        ${!isMe && u.connesso ? `<button class="btn-stuzzica" data-target="${escapeAttr(u.nome)}" title="Stuzzica!" ${astaAttiva ? 'disabled' : ''}>💬</button>` : ''}
+        <span class="text-slate-400 font-mono text-xs">${u.spettatore ? '👁️' : (u.budgetResiduo === null || u.budgetResiduo === undefined ? '🔒' : u.budgetResiduo)}</span>
+        ${!isMe && u.connesso && !u.spettatore ? `<button class="btn-stuzzica" data-target="${escapeAttr(u.nome)}" title="Stuzzica!" ${astaAttiva ? 'disabled' : ''}>💬</button>` : ''}
       </span>
     `;
     ul.appendChild(li);
@@ -861,6 +935,87 @@ function renderRosaSquadraSpettatore(partecipanti) {
   });
 }
 
+// ---------------------------------------------------------------- SALA D'ATTESA ADMIN
+
+function renderSalaAttesa(richieste, partecipanti) {
+  const panel = document.getElementById('pannelloAttesa');
+  const lista = document.getElementById('listaAttesa');
+  const titolo = document.getElementById('titoloAttesa');
+
+  if (!richieste || richieste.length === 0) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  titolo.textContent = '📌 Sala d\'Attesa (' + richieste.length + ')';
+  lista.innerHTML = '';
+
+  richieste.forEach(function (r) {
+    const card = document.createElement('div');
+    card.className = 'waiting-user-card waiting-user-pulse';
+    const tipo = r.spettatore ? ' [Ospite]' : ' [Partecipante]';
+    card.innerHTML = '<div class="text-slate-300 font-semibold mb-1.5 truncate">' + escapeHtml(r.nome) + '<span class="text-sky-400 text-[10px] ml-1">' + tipo + '</span></div>' +
+      '<div class="flex flex-wrap gap-1">' +
+        '<button class="attesa-btn-green" onclick="azioneAttesa(\'' + codeStr(r.sessionId) + '\', \'' + escapeAttr(r.nome) + '\', \'ACCETTA\')">✅</button>' +
+        '<input type="text" class="attesa-rename-input w-20" id="rename_' + codeStr(r.sessionId) + '" placeholder="nuovo nome" maxlength="24">' +
+        '<button class="attesa-btn-rename" onclick="azioneRinomina(\'' + codeStr(r.sessionId) + '\', \'' + escapeAttr(r.nome) + '\')">🔄</button>' +
+        '<button class="attesa-btn-red" onclick="azioneAttesa(\'' + codeStr(r.sessionId) + '\', \'' + escapeAttr(r.nome) + '\', \'RIFIUTA\')">❌</button>' +
+      '</div>' +
+      '<div class="flex flex-wrap gap-1 mt-1.5 items-center">' +
+        '<select class="attesa-select w-28" id="sub_' + codeStr(r.sessionId) + '"></select>' +
+        '<button class="attesa-btn-subentra" onclick="azioneSubentra(\'' + codeStr(r.sessionId) + '\', \'' + escapeAttr(r.nome) + '\')">Subentra</button>' +
+      '</div>';
+    card.setAttribute('data-sid', r.sessionId);
+    lista.appendChild(card);
+
+    // Popola il selettore squadre per subentro
+    setTimeout(function () {
+      var sel = document.getElementById('sub_' + r.sessionId);
+      if (!sel) return;
+      sel.innerHTML = '';
+      partecipanti.forEach(function (p) {
+        var opt = document.createElement('option');
+        opt.value = p.nome;
+        opt.textContent = p.nome;
+        sel.appendChild(opt);
+      });
+    }, 10);
+  });
+}
+
+function codeStr(s) {
+  return s.replace(/['"\\<>]/g, '');
+}
+
+window.azioneAttesa = function (sessionId, nome, azione) {
+  stompClient.publish({
+    destination: '/app/stanza/' + codiceStanza + '/admin/attesa',
+    body: JSON.stringify({ sessionId: sessionId, azione: azione })
+  });
+};
+
+window.azioneRinomina = function (sessionId, nome) {
+  var input = document.getElementById('rename_' + sessionId);
+  var nuovoNome = (input ? input.value.trim() : '');
+  if (!nuovoNome) { alert('Inserisci un nuovo nome.'); return; }
+  stompClient.publish({
+    destination: '/app/stanza/' + codiceStanza + '/admin/attesa',
+    body: JSON.stringify({ sessionId: sessionId, azione: 'RINOMINA', nuovoNome: nuovoNome })
+  });
+  if (input) input.value = '';
+};
+
+window.azioneSubentra = function (sessionId, nome) {
+  var sel = document.getElementById('sub_' + sessionId);
+  var squadraTarget = sel ? sel.value : '';
+  if (!squadraTarget) { alert('Seleziona una squadra a cui subentrare.'); return; }
+  stompClient.publish({
+    destination: '/app/stanza/' + codiceStanza + '/admin/attesa',
+    body: JSON.stringify({ sessionId: sessionId, azione: 'SUBENTRA', squadraTarget: squadraTarget })
+  });
+};
+
+// ----------------------------------------------------------------
 function renderGestioneRose(partecipanti) {
   const select = document.getElementById('selectSquadraGestione');
   const selezionatoPrima = select.value;

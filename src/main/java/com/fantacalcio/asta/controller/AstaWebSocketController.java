@@ -2,6 +2,7 @@ package com.fantacalcio.asta.controller;
 
 import com.fantacalcio.asta.dto.AdminModificaRosaRequest;
 import com.fantacalcio.asta.dto.ChiamataRequest;
+import com.fantacalcio.asta.dto.GestioneAttesaRequest;
 import com.fantacalcio.asta.dto.JoinRequest;
 import com.fantacalcio.asta.dto.PausaRequest;
 import com.fantacalcio.asta.dto.RilancioRequest;
@@ -73,5 +74,11 @@ public class AstaWebSocketController {
     public void stuzzica(@DestinationVariable String codice, @Payload StuzzicaRequest req,
                          SimpMessageHeaderAccessor headerAccessor) {
         stanzaService.stuzzica(codice, idConnessione(headerAccessor), req);
+    }
+
+    @MessageMapping("/stanza/{codice}/admin/attesa")
+    public void gestisciAttesa(@DestinationVariable String codice, @Payload GestioneAttesaRequest req,
+                               SimpMessageHeaderAccessor headerAccessor) {
+        stanzaService.gestisciRichiestaAttesa(codice, idConnessione(headerAccessor), req);
     }
 }

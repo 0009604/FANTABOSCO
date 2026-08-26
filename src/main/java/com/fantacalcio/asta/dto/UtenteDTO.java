@@ -12,6 +12,7 @@ public class UtenteDTO {
     private String nome;
     private boolean admin;
     private boolean connesso;
+    private boolean spettatore;
     private Integer budgetResiduo; // null se il destinatario non ha diritto a vederlo
     private Map<Ruolo, List<Calciatore>> rosa; // vuota se il destinatario non ha diritto a vederla
 
@@ -27,6 +28,7 @@ public class UtenteDTO {
         dto.nome = u.getNome();
         dto.admin = u.isAdmin();
         dto.connesso = u.isConnesso();
+        dto.spettatore = u.isSpettatore();
         if (mostraDettagli) {
             dto.budgetResiduo = u.getBudgetResiduo();
             dto.rosa = u.getRosa();
@@ -47,6 +49,10 @@ public class UtenteDTO {
 
     public boolean isConnesso() {
         return connesso;
+    }
+
+    public boolean isSpettatore() {
+        return spettatore;
     }
 
     public Integer getBudgetResiduo() {

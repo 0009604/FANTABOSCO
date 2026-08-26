@@ -21,6 +21,16 @@
 <!-- CONFETTI OVERLAY -->
 <div id="confettiOverlay" class="fixed inset-0 pointer-events-none z-[10001] hidden"></div>
 
+<!-- OVERLAY SALA D'ATTESA (IN_ATTESA / RIFIUTATO) -->
+<div id="overlayAttesa" class="hidden fixed inset-0 z-[10002] bg-slate-950/90 backdrop-blur-md flex items-center justify-center">
+  <div class="text-center p-6">
+    <div class="text-4xl mb-4" id="overlayAttesaIcon">⏳</div>
+    <p id="overlayAttesaTesto" class="text-slate-300 text-lg font-semibold mb-3">In attesa di approvazione da parte dell'Admin...</p>
+    <div id="overlayAttesaSpinner" class="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+    <button id="btnRifiutatoEsci" class="hidden mt-4 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Torna alla home</button>
+  </div>
+</div>
+
 <!-- TOP 5 SPENDERS OVERLAY -->
 <div id="top5Overlay" class="overlay-top5" style="display:none;">
   <div class="overlay-top5-card">
@@ -145,6 +155,14 @@
       <label class="block text-xs text-slate-400 mb-1">Squadra</label>
       <select id="selectSquadraGestione" class="w-full mb-2"></select>
       <div id="listaGestioneRosa" class="space-y-2 text-xs"></div>
+    </div>
+
+    <!-- Sala d'Attesa (visibile solo admin) -->
+    <div id="pannelloAttesa" class="panel-glass panel-glass-attesa p-3 hidden">
+      <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wide mb-2" id="titoloAttesa">📌 Sala d'Attesa</h2>
+      <div id="listaAttesa" class="space-y-2 text-xs">
+        <p class="text-slate-600">Nessuna richiesta in attesa.</p>
+      </div>
     </div>
 
     <div class="panel-glass p-3">

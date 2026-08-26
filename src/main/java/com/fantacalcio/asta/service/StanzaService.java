@@ -172,6 +172,115 @@ public class StanzaService {
         return nuovoCodice;
     }
 
+    // ---------------------------------------------------------------- GESTIONE SALA D'ATTESA (ADMIN)
+
+    public void gestisciRichiestaAttesa(String codiceStanza, String sessionIdAdmin, GestioneAttesaRequest req) {
+        StanzaAsta stanza = getStanza(codiceStanza);
+        if (stanza == null || req.getSessionId() == null || req.getAzione() == null) return;
+
+        boolean deveBroadcast = false;
+
+        stanza.getLock().lock();
+        try {
+            Utente admin = utenteDaSessione(stanza, sessionIdAdmin);
+            if (admin == null || !admin.isAdmin()) {
+                return;
+            }
+
+            RichiestaAttesaDTO richiesta = stanza.trovaRichiestaPendente(req.getSessionId());
+            if (richiesta == null) return;
+
+            String nomeOriginale = richiesta.getNome();
+            String sessionIdTarget = richiesta.getSessionId();
+
+            switch (req.getAzione()) {
+                case GestioneAttesaRequest.AZIONE_RIFIUTA:
+                    stanza.rimuoviRichiestaPendente(sessionIdTarget);
+                    stanza.aggiungiLog("❌ " + nomeOriginale + " è stato/a rifiutato/a.");
+                    try {
+                        StatoStanzaDTO dtoRifiutato = new StatoStanzaDTO();
+                        dtoRifiutato.setCodiceStanza(stanza.getCodice());
+                        dtoRifiutato.setEvento(new EventoDTO("RIFIUTATO", nomeOriginale,
+                                "La tua richiesta di accesso è stata rifiutata dall'Admin."));
+                        messagingTemplate.convertAndSendToUser(sessionIdTarget, "/queue/stato", dtoRifiutato);
+                    } catch (Exception e) { /* ignore */ }
+                    sessioni.remove(sessionIdTarget);
+                    deveBroadcast = true;
+                    break;
+
+                case GestioneAttesaRequest.AZIONE_ACCETTA:
+                    stanza.rimuoviRichiestaPendente(sessionIdTarget);
+                    accettaUtente(stanza, nomeOriginale, richiesta.isSpettatore(), sessionIdTarget, sessioni.get(sessionIdTarget));
+                    stanza.aggiungiLog("✅ " + nomeOriginale + " è stato/a approvato/a dall'Admin.");
+                    deveBroadcast = true;
+                    break;
+
+                case GestioneAttesaRequest.AZIONE_RINOMINA:
+                    String nuovoNome = req.getNuovoNome();
+                    if (nuovoNome == null || nuovoNome.isBlank()) return;
+                    stanza.rimuoviRichiestaPendente(sessionIdTarget);
+                    String[] oldInfo = sessioni.remove(sessionIdTarget);
+                    String nuovaChiave = nuovoNome.trim().toLowerCase();
+                    boolean nuovoSpettatore = Utente.isNomeSpettatore(nuovoNome.trim());
+                    sessioni.put(sessionIdTarget, new String[]{stanza.getCodice(), nuovaChiave});
+                    accettaUtente(stanza, nuovoNome.trim(), nuovoSpettatore, sessionIdTarget, oldInfo);
+                    stanza.aggiungiLog("🔄 " + nomeOriginale + " approvato/a con nuovo nome: " + nuovoNome.trim());
+                    deveBroadcast = true;
+                    break;
+
+                case GestioneAttesaRequest.AZIONE_SUBENTRA:
+                    String squadraTarget = req.getSquadraTarget();
+                    if (squadraTarget == null || squadraTarget.isBlank()) return;
+                    Utente vecchio = stanza.getUtenti().get(squadraTarget.trim().toLowerCase());
+                    if (vecchio == null) return;
+                    stanza.rimuoviRichiestaPendente(sessionIdTarget);
+                    sessioni.remove(sessionIdTarget);
+                    String[] subInfo = new String[]{stanza.getCodice(), squadraTarget.trim().toLowerCase()};
+                    sessioni.put(sessionIdTarget, subInfo);
+                    vecchio.setSessionId(sessionIdTarget);
+                    vecchio.setConnesso(true);
+                    stanza.aggiungiLog("🔄 " + nomeOriginale + " subentra alla squadra " + vecchio.getNome() + ".");
+                    try {
+                        StatoStanzaDTO dtoSubentro = new StatoStanzaDTO();
+                        dtoSubentro.setCodiceStanza(stanza.getCodice());
+                        dtoSubentro.setEvento(new EventoDTO("SUBENTRATO", nomeOriginale,
+                                "SUBENTRATO:" + vecchio.getNome() + ":" + vecchio.getBudgetResiduo()));
+                        dtoSubentro.setPartecipanti(costruisciListaPartecipanti(stanza, vecchio));
+                        dtoSubentro.setAstaCorrente(stanza.getAstaCorrente());
+                        dtoSubentro.setConfigurazione(stanza.getConfigurazione());
+                        dtoSubentro.setAdminNome(stanza.getAdminNome());
+                        messagingTemplate.convertAndSendToUser(sessionIdTarget, "/queue/stato", dtoSubentro);
+                    } catch (Exception e) { /* ignore */ }
+                    deveBroadcast = true;
+                    break;
+            }
+        } finally {
+            stanza.getLock().unlock();
+        }
+        if (deveBroadcast) {
+            broadcastStato(stanza, null);
+        }
+    }
+
+    private void accettaUtente(StanzaAsta stanza, String nome, boolean spettatore, String sessionId, String[] oldInfo) {
+        String chiave = nome.toLowerCase();
+        if (spettatore) {
+            Utente sp = stanza.getSpettatori().getOrDefault(chiave, new Utente(nome, 0, false));
+            sp.setSessionId(sessionId);
+            sp.setConnesso(true);
+            stanza.getSpettatori().put(chiave, sp);
+        } else {
+            Utente ut = stanza.getUtenti().get(chiave);
+            if (ut == null) {
+                boolean isAdmin = nome.equalsIgnoreCase(stanza.getAdminNome());
+                ut = new Utente(nome, stanza.getConfigurazione().getBudgetIniziale(), isAdmin);
+            }
+            ut.setSessionId(sessionId);
+            ut.setConnesso(true);
+            stanza.getUtenti().put(chiave, ut);
+        }
+    }
+
     // ---------------------------------------------------------------- JOIN
 
     public void join(String codiceStanza, String nomeRichiesto, String sessionId) {
@@ -181,47 +290,63 @@ public class StanzaService {
         }
         String nome = nomeRichiesto.trim();
         String chiave = nome.toLowerCase();
+        boolean spettatoreFlag = Utente.isNomeSpettatore(nome);
 
         boolean deveBroadcast = false;
+        EventoDTO eventoPrivato = null;
 
         stanza.getLock().lock();
         try {
-            // Modalità Spettatore/Ospite: nessuno slot occupato, nessun controllo di capienza.
-            if (Utente.isNomeSpettatore(nome)) {
-                Utente spettatore = stanza.getSpettatori().get(chiave);
-                if (spettatore == null) {
-                    spettatore = new Utente(nome, 0, false);
-                }
-                spettatore.setSessionId(sessionId);
-                spettatore.setConnesso(true);
-                stanza.getSpettatori().put(chiave, spettatore);
-                stanza.aggiungiLog("👁️ " + nome + " è entrato/a come spettatore.");
-                sessioni.put(sessionId, new String[]{stanza.getCodice(), chiave});
-                deveBroadcast = true;
-            } else {
-                Utente utente = stanza.getUtenti().get(chiave);
-                boolean isAdmin = nome.equalsIgnoreCase(stanza.getAdminNome());
+            boolean isAdmin = nome.equalsIgnoreCase(stanza.getAdminNome());
 
-                if (utente != null) {
-                    utente.setSessionId(sessionId);
-                    utente.setConnesso(true);
-                    stanza.aggiungiLog(utente.getNome() + " si è riconnesso/a.");
-                } else {
-                    if (stanza.getUtenti().size() >= stanza.getConfigurazione().getNumPartecipanti()) {
-                        inviaEventoPrivato(stanza, sessionId, "ERRORE", "Stanza piena.");
-                        return;
-                    }
-                    utente = new Utente(nome, stanza.getConfigurazione().getBudgetIniziale(), isAdmin);
+            // L'Admin si auto-approva sempre (salto sala d'attesa).
+            // I riconnessi (già in utenti o spettatori) saltano la sala d'attesa.
+            Utente utenteEsistente = stanza.getUtenti().get(chiave);
+            if (utenteEsistente == null) {
+                utenteEsistente = stanza.getSpettatori().get(chiave);
+            }
+
+            if (isAdmin || utenteEsistente != null) {
+                // --- Ingresso diretto (admin o riconnessione) ---
+                if (spettatoreFlag && utenteEsistente == null) {
+                    Utente spettatore = new Utente(nome, 0, false);
+                    spettatore.setSessionId(sessionId);
+                    spettatore.setConnesso(true);
+                    stanza.getSpettatori().put(chiave, spettatore);
+                    stanza.aggiungiLog("👁️ " + nome + " è entrato/a come spettatore.");
+                } else if (!spettatoreFlag && utenteEsistente == null) {
+                    Utente utente = new Utente(nome, stanza.getConfigurazione().getBudgetIniziale(), isAdmin);
                     utente.setSessionId(sessionId);
                     stanza.getUtenti().put(chiave, utente);
                     stanza.aggiungiLog(nome + " è entrato/a nella stanza.");
+                } else {
+                    utenteEsistente.setSessionId(sessionId);
+                    utenteEsistente.setConnesso(true);
+                    stanza.aggiungiLog(utenteEsistente.getNome() + " si è riconnesso/a.");
                 }
-
                 sessioni.put(sessionId, new String[]{stanza.getCodice(), chiave});
+                deveBroadcast = true;
+            } else {
+                // --- Richiesta in Sala d'Attesa ---
+                RichiestaAttesaDTO richiesta = new RichiestaAttesaDTO(sessionId, nome, spettatoreFlag);
+                stanza.aggiungiRichiestaPendente(richiesta);
+                sessioni.put(sessionId, new String[]{stanza.getCodice(), chiave});
+                stanza.aggiungiLog("⏳ " + nome + " è in attesa di approvazione.");
+                eventoPrivato = new EventoDTO("IN_ATTESA", nome,
+                        "⏳ In attesa di approvazione da parte dell'Admin...");
                 deveBroadcast = true;
             }
         } finally {
             stanza.getLock().unlock();
+        }
+        if (eventoPrivato != null) {
+            inviaEventoPrivato(stanza, sessionId, eventoPrivato.getTipo(), eventoPrivato.getMessaggio());
+            StatoStanzaDTO dtoAttesa = new StatoStanzaDTO();
+            dtoAttesa.setCodiceStanza(stanza.getCodice());
+            dtoAttesa.setEvento(eventoPrivato);
+            try {
+                messagingTemplate.convertAndSendToUser(sessionId, "/queue/stato", dtoAttesa);
+            } catch (Exception e) { /* ignore */ }
         }
         if (deveBroadcast) {
             broadcastStato(stanza, null);
@@ -251,6 +376,10 @@ public class StanzaService {
                 stanza.aggiungiLog(utente.getNome() + " si è disconnesso/a.");
                 deveBroadcast = true;
             }
+            if (stanza.rimuoviRichiestaPendente(sessionId)) {
+                stanza.aggiungiLog("⏳ " + info[1] + " ha abbandonato la sala d'attesa.");
+                deveBroadcast = true;
+            }
         } finally {
             stanza.getLock().unlock();
         }
@@ -273,6 +402,8 @@ public class StanzaService {
             if (chiamante == null) {
                 if (isSpettatoreDaSessione(stanza, sessionId)) {
                     inviaEventoPrivato(stanza, sessionId, "ERRORE", "Modalità Spettatore: non puoi effettuare chiamate o rilanci.");
+                } else if (isPendenteDaSessione(stanza, sessionId)) {
+                    inviaEventoPrivato(stanza, sessionId, "ERRORE", "Sei ancora in attesa di approvazione da parte dell'Admin.");
                 }
                 return;
             }
@@ -361,6 +492,8 @@ public class StanzaService {
             if (offerente == null) {
                 if (isSpettatoreDaSessione(stanza, sessionId)) {
                     inviaEventoPrivato(stanza, sessionId, "ERRORE", "Modalità Spettatore: non puoi effettuare chiamate o rilanci.");
+                } else if (isPendenteDaSessione(stanza, sessionId)) {
+                    inviaEventoPrivato(stanza, sessionId, "ERRORE", "Sei ancora in attesa di approvazione da parte dell'Admin.");
                 }
                 return;
             }
@@ -700,6 +833,11 @@ public class StanzaService {
         return stanza.getSpettatori().containsKey(info[1]);
     }
 
+    /** True se la connessione è ancora in attesa di approvazione. */
+    private boolean isPendenteDaSessione(StanzaAsta stanza, String sessionId) {
+        return stanza.trovaRichiestaPendente(sessionId) != null;
+    }
+
     private Utente trovaUtentePerNome(StanzaAsta stanza, String nome) {
         if (nome == null) return null;
         return stanza.getUtenti().get(nome.trim().toLowerCase());
@@ -799,6 +937,11 @@ public class StanzaService {
             dto.setInPausa(stanza.isInPausa());
             dto.setPartecipanti(costruisciListaPartecipanti(stanza, destinatario));
 
+            // Solo l'admin vede la lista della Sala d'Attesa
+            if (destinatario.isAdmin()) {
+                dto.setRichiestePendenti(stanza.getRichiestePendentiSnapshot());
+            }
+
             boolean eventoPerQuestoUtente = evento != null
                     && (evento.getTargetNome() == null || evento.getTargetNome().equalsIgnoreCase(destinatario.getNome()));
             dto.setEvento(eventoPerQuestoUtente ? evento : null);
@@ -821,6 +964,12 @@ public class StanzaService {
             boolean self = u.getNome().equalsIgnoreCase(destinatario.getNome());
             boolean mostraDettagli = destinatario.isAdmin() || destinatario.isSpettatore() || self;
             lista.add(UtenteDTO.from(u, mostraDettagli));
+        }
+        // Includi anche gli spettatori nella lista per consentire loro di rilevarsi nella UI
+        for (Utente sp : stanza.getSpettatori().values()) {
+            boolean self = sp.getNome().equalsIgnoreCase(destinatario.getNome());
+            boolean mostraDettagli = destinatario.isAdmin() || self;
+            lista.add(UtenteDTO.from(sp, mostraDettagli));
         }
         return lista;
     }

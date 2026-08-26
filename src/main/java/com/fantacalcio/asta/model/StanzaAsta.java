@@ -1,11 +1,16 @@
 package com.fantacalcio.asta.model;
 
+import com.fantacalcio.asta.dto.RichiestaAttesaDTO;
+
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 /** Aggregato in memoria di una stanza d'asta. Tutto l'accesso mutabile va protetto da {@link #lock}. */
 public class StanzaAsta {
@@ -19,6 +24,8 @@ public class StanzaAsta {
     private final Map<String, Utente> utenti = new LinkedHashMap<>();
     // Spettatori/Ospiti: non occupano slot né influiscono sul quorum, ma ricevono i broadcast.
     private final Map<String, Utente> spettatori = new LinkedHashMap<>();
+    // Richieste di ingresso in attesa di approvazione da parte dell'Admin (sessionId -> RichiestaAttesaDTO)
+    private final ConcurrentLinkedQueue<RichiestaAttesaDTO> richiestePendenti = new ConcurrentLinkedQueue<>();
     private final AstaCorrente astaCorrente = new AstaCorrente();
     private final LinkedList<String> log = new LinkedList<>();
 
@@ -86,5 +93,28 @@ public class StanzaAsta {
 
     public void setInPausa(boolean inPausa) {
         this.inPausa = inPausa;
+    }
+
+    public ConcurrentLinkedQueue<RichiestaAttesaDTO> getRichiestePendenti() {
+        return richiestePendenti;
+    }
+
+    public List<RichiestaAttesaDTO> getRichiestePendentiSnapshot() {
+        return richiestePendenti.stream().collect(Collectors.toList());
+    }
+
+    public void aggiungiRichiestaPendente(RichiestaAttesaDTO req) {
+        richiestePendenti.add(req);
+    }
+
+    public boolean rimuoviRichiestaPendente(String sessionId) {
+        return richiestePendenti.removeIf(r -> r.getSessionId().equals(sessionId));
+    }
+
+    public RichiestaAttesaDTO trovaRichiestaPendente(String sessionId) {
+        for (RichiestaAttesaDTO r : richiestePendenti) {
+            if (r.getSessionId().equals(sessionId)) return r;
+        }
+        return null;
     }
 }
