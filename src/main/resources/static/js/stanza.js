@@ -793,34 +793,32 @@ function renderLog(log) {
 
 function renderRosa(rosa, config) {
   const container = document.getElementById('rosaContainer');
+  container.className = 'rosa-colonne-grid';
   container.innerHTML = '';
   RUOLI.forEach(r => {
     const giocatori = rosa[r.key] || [];
     const slotTotali = config[SLOT_CONFIG_KEY[r.key]];
-    const spesa = giocatori.reduce((sum, g) => sum + (g.prezzoPagato || 0), 0);
-    const block = document.createElement('div');
-    block.innerHTML = `
-      <h3 class="text-xs font-bold uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-        <span class="px-1.5 py-0.5 rounded ${r.color}">${r.short}</span>
-        <span class="text-slate-400">${r.label}</span>
-        <span class="text-slate-600 ml-auto">${giocatori.length}/${slotTotali} <span class="text-slate-500">(${spesa} cr.)</span></span>
-      </h3>
-      <ul class="space-y-1 text-sm mb-3"></ul>
+    const colonna = document.createElement('div');
+    colonna.className = 'ruolo-colonna';
+    colonna.innerHTML = `
+      <div class="ruolo-colonna-header">
+        <span class="ruolo-short ${r.color} px-1 rounded">${r.short}</span>
+        <span class="ruolo-count">${giocatori.length}/${slotTotali}</span>
+      </div>
     `;
-    const ul = block.querySelector('ul');
     for (let i = 0; i < slotTotali; i++) {
       const g = giocatori[i];
-      const li = document.createElement('li');
+      const slot = document.createElement('div');
       if (g) {
-        li.className = 'flex justify-between bg-slate-800/60 rounded-lg px-2 py-1';
-        li.innerHTML = `<span class="truncate">${escapeHtml(g.nome)}</span><span class="text-emerald-400 font-mono">${g.prezzoPagato}</span>`;
+        slot.className = 'ruolo-slot pieno';
+        slot.innerHTML = `<span class="slot-name">${escapeHtml(g.nome)}</span><span class="slot-prezzo">${g.prezzoPagato}</span>`;
       } else {
-        li.className = 'flex justify-between border border-dashed border-slate-800 rounded-lg px-2 py-1 text-slate-700';
-        li.innerHTML = `<span>slot libero</span>`;
+        slot.className = 'ruolo-slot vuoto';
+        slot.textContent = i < 1 ? 'libero' : '';
       }
-      ul.appendChild(li);
+      colonna.appendChild(slot);
     }
-    container.appendChild(block);
+    container.appendChild(colonna);
   });
 }
 

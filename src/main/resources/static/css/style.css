@@ -693,6 +693,82 @@ button[id^="btnRicarica"]:hover {
 #rosaContainer {
   max-height: 60vh;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+}
+
+.ruolo-colonna {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ruolo-colonna-header {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 2px 2px 2px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  border-bottom: 2px solid rgba(148,163,184,0.15);
+  margin-bottom: 2px;
+}
+
+.ruolo-colonna-header .ruolo-short {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.ruolo-colonna-header .ruolo-count {
+  font-size: 0.52rem;
+  color: rgba(148,163,184,0.55);
+  font-family: 'SF Mono', monospace;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+}
+
+.ruolo-slot {
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s;
+  line-height: 1.35;
+}
+
+.ruolo-slot.pieno {
+  background: rgba(30,41,59,0.6);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+}
+
+.ruolo-slot.pieno .slot-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.ruolo-slot.pieno .slot-prezzo {
+  font-size: 0.55rem;
+  font-family: 'SF Mono', monospace;
+  color: #4ade80;
+  flex-shrink: 0;
+  margin-left: 3px;
+}
+
+.ruolo-slot.vuoto {
+  border: 1px dashed rgba(71,85,105,0.5);
+  color: rgba(100,116,139,0.5);
+  text-align: center;
+  font-size: 0.55rem;
 }
 #rosaContainer ul {
   list-style: none;
