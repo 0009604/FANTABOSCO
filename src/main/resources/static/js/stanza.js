@@ -93,6 +93,7 @@ const RUOLO_INFO = Object.fromEntries(RUOLI.map(r => [r.key, r]));
 const SLOT_CONFIG_KEY = { PORTIERE: 'slotPortieri', DIFENSORE: 'slotDifensori', CENTROCAMPISTA: 'slotCentrocampisti', ATTACCANTE: 'slotAttaccanti' };
 
 let ultimoStato = null;
+let ultimeStatistiche = null;
 let listinoSelezionato = null; // { nome, ruolo, squadra } se l'utente ha scelto un suggerimento
 let valoreStaged = null;       // valore attualmente impostato sullo slider di rilancio
 let ultimaOffertaVista = null; // per capire quando resettare lo slider (nuova offerta altrui)
@@ -585,6 +586,15 @@ stompClient.onConnect = () => {
   stompClient.subscribe('/user/queue/backup', (msg) => {
     const backup = JSON.parse(msg.body);
     salvaBackupRicevuto(backup);
+  });
+  // statistiche asta, aggiornate dopo ogni aggiudicazione o su richiesta
+  stompClient.subscribe('/user/queue/statistiche', (msg) => {
+    const stat = JSON.parse(msg.body);
+    ultimeStatistiche = stat;
+    if (document.getElementById('modalStatisticheBackdrop') &&
+        !document.getElementById('modalStatisticheBackdrop').classList.contains('hidden')) {
+      renderStatistiche(stat);
+    }
   });
   stompClient.publish({
     destination: `/app/stanza/${codiceStanza}/join`,
@@ -1437,6 +1447,106 @@ document.getElementById('btnScaricaTutteJson').addEventListener('click', () => {
 document.getElementById('btnScaricaTutteTxt').addEventListener('click', () => {
   window.location.href = `/api/stanze/${codiceStanza}/rosa-tutte?nomeRichiedente=${encodeURIComponent(mioNome)}&formato=txt`;
 });
+
+// ---------------------------------------------------------------- STATISTICHE
+
+document.getElementById('btnStatistiche').addEventListener('click', () => {
+  document.getElementById('modalStatisticheBackdrop').classList.remove('hidden');
+  if (ultimeStatistiche) {
+    renderStatistiche(ultimeStatistiche);
+  } else {
+    document.getElementById('statContent').innerHTML = '<p class="text-slate-500 text-center py-8">Nessuna statistica disponibile. Richiedile al prossimo acquisto.</p>';
+  }
+  stompClient.publish({ destination: `/app/stanza/${codiceStanza}/statistiche` });
+});
+
+document.getElementById('btnCloseStatistiche').addEventListener('click', () => {
+  document.getElementById('modalStatisticheBackdrop').classList.add('hidden');
+});
+
+document.getElementById('modalStatisticheBackdrop').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalStatisticheBackdrop')) {
+    document.getElementById('modalStatisticheBackdrop').classList.add('hidden');
+  }
+});
+
+document.getElementById('btnRefreshStatistiche').addEventListener('click', () => {
+  stompClient.publish({ destination: `/app/stanza/${codiceStanza}/statistiche` });
+});
+
+function renderStatistiche(stat) {
+  const container = document.getElementById('statContent');
+  if (!stat) {
+    container.innerHTML = '<p class="text-slate-500 text-center py-8">Ancora nessun acquisto registrato.</p>';
+    return;
+  }
+
+  let html = '';
+
+  // Top 5 Più Pagati
+  html += '<div class="stat-section"><h3 class="stat-section-title">🏆 Top 5 Acquisti Assoluti</h3>';
+  if (stat.top5PiuPagati && stat.top5PiuPagati.length > 0) {
+    html += '<div class="stat-list">';
+    stat.top5PiuPagati.forEach(function (a, i) {
+      var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+      html += '<div class="stat-row"><span class="stat-rank">' + medal + '</span><span class="stat-name">' + escapeHtml(a.nomeCalciatore) + '</span><span class="stat-buyer">' + escapeHtml(a.squadraAcquirente) + '</span><span class="stat-price">' + a.prezzo + ' cr.</span></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<p class="stat-empty">Nessun acquisto registrato.</p>';
+  }
+  html += '</div>';
+
+  // Aste Più Lunghe vs Più Veloci
+  html += '<div class="stat-double">';
+  html += '<div class="stat-section"><h3 class="stat-section-title">⏱️ Aste Più Lunghe</h3>';
+  if (stat.top3AstePiuLunghe && stat.top3AstePiuLunghe.length > 0) {
+    html += '<div class="stat-list small">';
+    stat.top3AstePiuLunghe.forEach(function (a) {
+      html += '<div class="stat-row"><span class="stat-name">' + escapeHtml(a.nomeCalciatore) + '</span><span class="stat-buyer">' + escapeHtml(a.squadraAcquirente) + '</span><span class="stat-price">' + a.durataSecondi + 's</span></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<p class="stat-empty">Nessuna asta multirilancio.</p>';
+  }
+html += '</div>';
+  html += '<div class="stat-section"><h3 class="stat-section-title">⏱️ Aste Più Veloci</h3>';
+  if (stat.top3AstePiuVeloci && stat.top3AstePiuVeloci.length > 0) {
+    html += '<div class="stat-list small">';
+    stat.top3AstePiuVeloci.forEach(function (a) {
+      html += '<div class="stat-row"><span class="stat-name">' + escapeHtml(a.nomeCalciatore) + '</span><span class="stat-buyer">' + escapeHtml(a.squadraAcquirente) + '</span><span class="stat-price">' + a.durataSecondi + 's</span></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<p class="stat-empty">Nessuna asta multirilancio.</p>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  // Top 3 per Ruolo
+  html += '<div class="stat-section"><h3 class="stat-section-title">⚽ Top 3 per Ruolo</h3>';
+  var ruoliLabels = { 'PORTIERE': 'Portieri', 'DIFENSORE': 'Difensori', 'CENTROCAMPISTA': 'Centrocampisti', 'ATTACCANTE': 'Attaccanti' };
+  var ruoliColors = { 'PORTIERE': '#fbbf24', 'DIFENSORE': '#4ade80', 'CENTROCAMPISTA': '#60a5fa', 'ATTACCANTE': '#fb7185' };
+  var ruoliKeys = ['PORTIERE', 'DIFENSORE', 'CENTROCAMPISTA', 'ATTACCANTE'];
+  html += '<div class="stat-ruoli-grid">';
+  ruoliKeys.forEach(function (ruolo) {
+    var label = ruoliLabels[ruolo] || ruolo;
+    var color = ruoliColors[ruolo] || '#94a3b8';
+    var lista = (stat.top3PerRuolo && stat.top3PerRuolo[ruolo]) || [];
+    html += '<div class="stat-ruolo-col"><div class="stat-ruolo-header" style="border-color:' + color + '">' + label + '</div>';
+    if (lista.length > 0) {
+      lista.forEach(function (a) {
+        html += '<div class="stat-row tiny"><span class="stat-name">' + escapeHtml(a.nomeCalciatore) + '</span><span class="stat-price">' + a.prezzo + ' cr.</span><span class="stat-buyer">' + escapeHtml(a.squadraAcquirente) + '</span></div>';
+      });
+    } else {
+      html += '<p class="stat-empty">--</p>';
+    }
+    html += '</div>';
+  });
+  html += '</div></div>';
+
+  container.innerHTML = html;
+}
 
 // ---------------------------------------------------------------- UTIL
 

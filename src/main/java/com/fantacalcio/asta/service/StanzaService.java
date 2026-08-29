@@ -463,6 +463,7 @@ public class StanzaService {
             asta.setOfferenteNome(chiamante.getNome());
             asta.setChiamataDaNome(chiamante.getNome());
             asta.setSecondiRimanenti(stanza.getConfigurazione().getTimerSecondi());
+            asta.setTempoInizioAsta(System.currentTimeMillis());
 
             stanza.aggiungiLog(chiamante.getNome() + " chiama " + asta.getCalciatoreNome()
                     + " (" + req.getRuolo() + ") base " + prezzoBase);
@@ -727,6 +728,7 @@ public class StanzaService {
     private void tick(StanzaAsta stanza) {
         EventoDTO evento = null;
         boolean deveBroadcast = false;
+        boolean aggiudicazioneAvvenuta = false;
 
         stanza.getLock().lock();
         try {
@@ -743,6 +745,7 @@ public class StanzaService {
                 if (t != null) t.cancel(false);
                 evento = finalizzaAggiudicazione(stanza);
                 deveBroadcast = true;
+                aggiudicazioneAvvenuta = (evento != null);
             } else {
                 deveBroadcast = true;
             }
@@ -751,6 +754,9 @@ public class StanzaService {
         }
         if (deveBroadcast) {
             broadcastStato(stanza, evento);
+            if (aggiudicazioneAvvenuta) {
+                broadcastStatistiche(stanza);
+            }
         }
     }
 
@@ -763,6 +769,10 @@ public class StanzaService {
         EventoDTO evento;
         if (vincitore != null) {
             vincitore.aggiudicaCalciatore(asta.getCalciatoreNome(), asta.getRuolo(), asta.getOffertaCorrente());
+            int durata = (int) ((System.currentTimeMillis() - asta.getTempoInizioAsta()) / 1000);
+            stanza.aggiungiAcquistoCompletato(new StanzaAsta.AcquistoCompletato(
+                    asta.getCalciatoreNome(), asta.getRuolo(), asta.getOffertaCorrente(),
+                    vincitore.getNome(), durata));
             stanza.aggiungiLog(vincitore.getNome() + " si aggiudica " + asta.getCalciatoreNome()
                     + " per " + asta.getOffertaCorrente() + " crediti!");
             evento = new EventoDTO("AGGIUDICAZIONE", null,
@@ -972,5 +982,48 @@ public class StanzaService {
             lista.add(UtenteDTO.from(sp, mostraDettagli));
         }
         return lista;
+    }
+
+    // ---------------------------------------------------------------- STATISTICHE
+
+    public void richiediStatistiche(String codiceStanza, String sessionId) {
+        StanzaAsta stanza = getStanza(codiceStanza);
+        if (stanza == null) return;
+
+        StatisticheAstaDTO stat = null;
+
+        stanza.getLock().lock();
+        try {
+            stat = StatisticheAstaDTO.from(stanza.getAcquistiCompletati());
+        } finally {
+            stanza.getLock().unlock();
+        }
+
+        if (stat != null && sessionId != null) {
+            messagingTemplate.convertAndSendToUser(sessionId, "/queue/statistiche", stat);
+        }
+    }
+
+    private void broadcastStatistiche(StanzaAsta stanza) {
+        StatisticheAstaDTO stat;
+        stanza.getLock().lock();
+        try {
+            stat = StatisticheAstaDTO.from(stanza.getAcquistiCompletati());
+        } finally {
+            stanza.getLock().unlock();
+        }
+
+        if (stat == null) return;
+
+        for (Utente utente : stanza.getUtenti().values()) {
+            if (utente.isConnesso() && utente.getSessionId() != null) {
+                messagingTemplate.convertAndSendToUser(utente.getSessionId(), "/queue/statistiche", stat);
+            }
+        }
+        for (Utente sp : stanza.getSpettatori().values()) {
+            if (sp.isConnesso() && sp.getSessionId() != null) {
+                messagingTemplate.convertAndSendToUser(sp.getSessionId(), "/queue/statistiche", stat);
+            }
+        }
     }
 }

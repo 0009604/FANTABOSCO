@@ -3,6 +3,7 @@ package com.fantacalcio.asta.model;
 import com.fantacalcio.asta.dto.RichiestaAttesaDTO;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,6 +29,7 @@ public class StanzaAsta {
     private final ConcurrentLinkedQueue<RichiestaAttesaDTO> richiestePendenti = new ConcurrentLinkedQueue<>();
     private final AstaCorrente astaCorrente = new AstaCorrente();
     private final LinkedList<String> log = new LinkedList<>();
+    private final List<AcquistoCompletato> acquistiCompletati = new ArrayList<>();
 
     private final ReentrantLock lock = new ReentrantLock();
     private transient ScheduledFuture<?> timerTask;
@@ -116,5 +118,42 @@ public class StanzaAsta {
             if (r.getSessionId().equals(sessionId)) return r;
         }
         return null;
+    }
+
+    public List<AcquistoCompletato> getAcquistiCompletati() {
+        return acquistiCompletati;
+    }
+
+    public void aggiungiAcquistoCompletato(AcquistoCompletato a) {
+        acquistiCompletati.add(a);
+    }
+
+    public static class AcquistoCompletato {
+        private String nomeCalciatore;
+        private Ruolo ruolo;
+        private int prezzo;
+        private String squadraAcquirente;
+        private int durataSecondi;
+
+        public AcquistoCompletato() {}
+
+        public AcquistoCompletato(String nomeCalciatore, Ruolo ruolo, int prezzo, String squadraAcquirente, int durataSecondi) {
+            this.nomeCalciatore = nomeCalciatore;
+            this.ruolo = ruolo;
+            this.prezzo = prezzo;
+            this.squadraAcquirente = squadraAcquirente;
+            this.durataSecondi = durataSecondi;
+        }
+
+        public String getNomeCalciatore() { return nomeCalciatore; }
+        public void setNomeCalciatore(String nomeCalciatore) { this.nomeCalciatore = nomeCalciatore; }
+        public Ruolo getRuolo() { return ruolo; }
+        public void setRuolo(Ruolo ruolo) { this.ruolo = ruolo; }
+        public int getPrezzo() { return prezzo; }
+        public void setPrezzo(int prezzo) { this.prezzo = prezzo; }
+        public String getSquadraAcquirente() { return squadraAcquirente; }
+        public void setSquadraAcquirente(String squadraAcquirente) { this.squadraAcquirente = squadraAcquirente; }
+        public int getDurataSecondi() { return durataSecondi; }
+        public void setDurataSecondi(int durataSecondi) { this.durataSecondi = durataSecondi; }
     }
 }

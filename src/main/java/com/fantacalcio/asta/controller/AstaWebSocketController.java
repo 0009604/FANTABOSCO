@@ -81,4 +81,9 @@ public class AstaWebSocketController {
                                SimpMessageHeaderAccessor headerAccessor) {
         stanzaService.gestisciRichiestaAttesa(codice, idConnessione(headerAccessor), req);
     }
+
+    @MessageMapping("/stanza/{codice}/statistiche")
+    public void statistiche(@DestinationVariable String codice, SimpMessageHeaderAccessor headerAccessor) {
+        stanzaService.richiediStatistiche(codice, idConnessione(headerAccessor));
+    }
 }

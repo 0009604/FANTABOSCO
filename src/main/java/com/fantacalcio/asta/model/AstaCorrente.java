@@ -11,6 +11,7 @@ public class AstaCorrente {
     private int offertaCorrente;
     private int secondiRimanenti;
     private String chiamataDaNome;
+    private long tempoInizioAsta;
 
     public boolean isAttiva() {
         return attiva;
@@ -76,6 +77,14 @@ public class AstaCorrente {
         this.chiamataDaNome = chiamataDaNome;
     }
 
+    public long getTempoInizioAsta() {
+        return tempoInizioAsta;
+    }
+
+    public void setTempoInizioAsta(long tempoInizioAsta) {
+        this.tempoInizioAsta = tempoInizioAsta;
+    }
+
     public void reset() {
         this.attiva = false;
         this.calciatoreNome = null;
@@ -85,5 +94,6 @@ public class AstaCorrente {
         this.offertaCorrente = 0;
         this.secondiRimanenti = 0;
         this.chiamataDaNome = null;
+        this.tempoInizioAsta = 0;
     }
 }
