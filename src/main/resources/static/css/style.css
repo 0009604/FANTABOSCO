@@ -168,7 +168,7 @@ body {
   font-size: 0.62rem;
 }
 
-/* ── Center block: Connessione + Budget ──────────── */
+/* ── Center block: Budget + Max Rilancio ──────────── */
 .header-center {
   display: flex;
   flex-direction: column;
@@ -177,12 +177,72 @@ body {
   flex-shrink: 0;
 }
 
+.header-center-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-budget-block {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-budget-labels {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1;
+}
+
+.header-budget-label-line {
+  font-size: 0.48rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(52, 211, 153, 0.45);
+  line-height: 1.1;
+}
+
 .header-budget {
-  font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+  font-size: clamp(1.35rem, 3.5vw, 1.50rem);
   font-weight: 900;
   font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
   color: #34d399;
   text-shadow: 0 0 12px rgba(52, 211, 153, 0.2);
+  line-height: 1.1;
+}
+
+.header-maxrilancio-block {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.header-maxrilancio-labels {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1;
+}
+
+.header-maxrilancio-label-line {
+  font-size: 0.45rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(148, 163, 184, 0.4);
+  line-height: 1.1;
+}
+
+.header-maxrilancio {
+  font-size: clamp(0.85rem, 2.4vw, 1.05rem);
+  font-weight: 800;
+  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  color: #94a3b8;
   line-height: 1.1;
 }
 
@@ -207,10 +267,14 @@ body {
 /* ── Mobile tweaks ────────────────────────────────── */
 @media (max-width: 370px) {
   #codiceStanzaLabel { font-size: 0.9rem; letter-spacing: 0.03em; }
-  .header-budget { font-size: 1.15rem; }
+  .header-budget { font-size: 1.05rem; }
+  .header-maxrilancio { font-size: 0.75rem; }
+  .header-budget-label-line { font-size: 0.42rem; }
+  .header-maxrilancio-label-line { font-size: 0.4rem; }
   .header-allenatore { font-size: 0.56rem; }
   .header-watchlist-label { font-size: 0.45rem; }
   .header-stanza-label { font-size: 0.5rem; }
+  .header-center-row { gap: 4px; }
 }
 
 /* ── BODY BG OVERRIDES ────────────────────────────── */

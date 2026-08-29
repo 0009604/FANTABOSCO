@@ -634,6 +634,7 @@ function renderStato(dto) {
 
   if (me) {
     document.getElementById('budgetLabel').textContent = me.budgetResiduo;
+    document.getElementById('maxRilancioLabel').textContent = calcolaMaxRilancio(me, dto.configurazione);
     renderRosa(me.rosa, dto.configurazione);
     renderSlotProgress(me.rosa, dto.configurazione);
     document.getElementById('pannelloAdmin').classList.toggle('hidden', !sonoAdmin);
@@ -1206,6 +1207,16 @@ function calcolaOffertaMassima(me, config) {
   });
   if (slotLiberiTotali <= 0) return 0;
   return me.budgetResiduo - (slotLiberiTotali - 1);
+}
+
+function calcolaMaxRilancio(me, config) {
+  if (!me || me.spettatore) return '—';
+  let slotLiberi = 0;
+  RUOLI.forEach(function (r) {
+    slotLiberi += Math.max(0, config[SLOT_CONFIG_KEY[r.key]] - (me.rosa[r.key] || []).length);
+  });
+  var raw = me.budgetResiduo - Math.max(0, slotLiberi - 1);
+  return Math.max(1, raw);
 }
 
 function aggiornaStepper(asta, config, me, sonoIoInTesta) {

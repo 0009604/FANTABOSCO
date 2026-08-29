@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Stanza Asta · Fantacalcio Live</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body class="min-h-screen text-slate-100">
 
@@ -71,13 +71,27 @@
       <div class="header-allenatore"><span class="header-allenatore-label">Allenatore:</span> <span id="nomeLabel" class="font-semibold">-</span></div>
     </div>
 
-    <!-- SEZIONE CENTRALE: Connessione + Budget -->
+<!-- SEZIONE CENTRALE: Budget + Max Rilancio -->
     <div class="header-center">
-      <div class="flex items-center justify-center gap-1.5">
+      <div class="header-center-row">
         <span id="dotConnessione" class="dot-status connecting" title="Connessione"></span>
-        <span class="section-label">BUDGET RESIDUO</span>
+        <div class="header-budget-block">
+          <div class="header-budget-labels">
+            <span class="header-budget-label-line">BUDGET</span>
+            <span class="header-budget-label-line">RESIDUO</span>
+          </div>
+          <div class="header-budget" id="budgetLabel">0</div>
+        </div>
+        <div class="header-maxrilancio-block">
+          <div class="header-maxrilancio-labels">
+            <span class="header-maxrilancio-label-line">MAX</span>
+            <span class="header-maxrilancio-label-line">RILANCIO</span>
+          </div>
+          <div class="header-maxrilancio" id="maxRilancioLabel">1</div>
+        </div>
+
       </div>
-      <div class="header-budget" id="budgetLabel">0</div>
+
     </div>
 
     <!-- SEZIONE DESTRA: Watchlist -->
@@ -304,6 +318,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="js/stanza.js?v=3"></script>
+<script src="js/stanza.js?v=4"></script>
 </body>
 </html>
